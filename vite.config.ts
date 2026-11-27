@@ -21,6 +21,11 @@ export default defineConfig({
     __EHUNTER_VERSION__: JSON.stringify(pkg.version)
   },
   server: {
-    host: true,
+    host: '127.0.0.1',
+    proxy: {
+      '/api': 'http://127.0.0.1:5177',
+      '/img': 'http://127.0.0.1:5177',
+      '/thumb': 'http://127.0.0.1:5177',
+    },
   }
 })

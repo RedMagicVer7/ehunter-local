@@ -3,7 +3,7 @@ import { i18n, lang } from './i18n'
 import type { AlbumService } from '../service/AlbumService'
 import { NameAlbumService } from '../service/AlbumService'
 import type { ImgPageInfo, ThumbInfo } from 'core/model/model'
-import { initViewportSizeUpdater, initKeyboardListener, resetAutoFlipTimer, checkInstructions, openWelcomeInstructionDialog, checkVersion } from './event'
+import { initViewportSizeUpdater, initKeyboardListener, resetAutoFlipTimer, checkInstructions, openWelcomeInstructionDialog } from './event'
 import PlatformService from '../../src/platform/base/service/PlatformService.js'
 import {
     clampThumbSize,
@@ -203,7 +203,6 @@ export const quickSettingOptions: QuickSettingOption[] = [
     { id: 'IsReverseBookWheeFliplDirection', i18nKey: 'wheelDirection', modeScope: 'book-only' },
     { id: 'wheelSensitivity', i18nKey: 'wheelSensitivity', modeScope: 'book-only' },
     { id: 'lang', i18nKey: 'languageSetting', modeScope: 'both' },
-    { id: 'autoRetryByOtherSource', i18nKey: 'autoSourceRetry', modeScope: 'both' },
 ]
 
 export const settingsCategories: SettingsCategory[] = [
@@ -354,7 +353,7 @@ export const settingFieldDefinitions: SettingFieldDefinition[] = [
         tipI18nKey: 'downloadChunkSizeTip',
         modeScope: 'both',
         showInTopBar: false,
-        showInDialog: true,
+        showInDialog: false,
         dialogCategory: 'general',
         numKey: 'downloadChunkSize',
         min: 1,
@@ -366,8 +365,8 @@ export const settingFieldDefinitions: SettingFieldDefinition[] = [
         labelI18nKey: 'autoSourceRetry',
         tipI18nKey: 'autoSourceRetryTip',
         modeScope: 'both',
-        showInTopBar: true,
-        showInDialog: true,
+        showInTopBar: false,
+        showInDialog: false,
         dialogCategory: 'general',
     },
     {
@@ -1033,12 +1032,13 @@ export const store = reactive({
     activeSettingsCategory: <SettingsCategory['id']>'general',
     topBarHeight: 40, // px, for calc
     readingMode: 0, // 0: scroll, 1: book
-    widthScale: 80, // percent, the scale of img
+    widthScale: 80, // percent, the scale of img; 0 = fit height
+    fitHeightWidthScale: 0, // runtime: percent that fit-height currently resolves to
     loadNum: 3, // the sum of pages per loading
     downloadChunkSize: 200,
     volumeSize: 100, // default 10, the page quantity per volume
     showThumbView: responsiveDefaults.showThumbView,
-    bookDirection: 0, // 0: RTL, 1: LTR
+    bookDirection: 1, // 0: RTL, 1: LTR
     showBookPagination: responsiveDefaults.showBookPagination, // show/hide bottom floating pagination bar
     isChangeOddEven: false,
     isReverseFlip: false, // reverse the page flipping direction
@@ -1166,7 +1166,8 @@ export const settingConf = {
         { i18nKey: 'bookMode', val: 1 },
     ],
     widthScale: {
-        list: [40, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+        // 0 = fit page height to the viewport
+        list: [0, 40, 50, 60, 70, 80, 90, 100],
         suffix: '%'
     },
     loadNum: {
@@ -1336,6 +1337,29 @@ export const storeAction = {
     setWidthScale: (val: number) => {
         store.widthScale = val
         persistUnifiedSettingsState()
+    },
+    setFitHeightWidthScale: (val: number) => {
+        store.fitHeightWidthScale = val
+    },
+    getEffectiveWidthScale: (): number => {
+        if (store.widthScale === 0) {
+            return store.fitHeightWidthScale || 80
+        }
+        return store.widthScale
+    },
+    stepWidthScale: (direction: 1 | -1) => {
+        const current = storeAction.getEffectiveWidthScale()
+        // fit-height (0) takes part in stepping at the size it currently resolves to
+        const steps = settingConf.widthScale.list
+            .map(val => ({ val, size: val === 0 ? store.fitHeightWidthScale : val }))
+            .filter(step => step.size > 0)
+            .sort((a, b) => a.size - b.size)
+        const target = direction > 0
+            ? steps.find(step => step.size > current + 0.5)
+            : [...steps].reverse().find(step => step.size < current - 0.5)
+        if (target) {
+            storeAction.setWidthScale(target.val)
+        }
     },
     setLoadNum: (val: number) => {
         store.loadNum = val
@@ -1745,7 +1769,6 @@ export function init(albumService: AlbumService) {
     initKeyboardListener()
     resetAutoFlipTimer()
     checkInstructions()
-    checkVersion()
     isInited = true
 }
 

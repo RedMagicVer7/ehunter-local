@@ -25,12 +25,12 @@ const props = withDefaults(defineProps<{
 })
 
 function formatName(val: number): string {
+    if (props.formatFn) {
+        return props.formatFn(val)
+    }
     let name = String(val)
     if (props.suffix) {
         return name += props.suffix
-    }
-    if (props.formatFn) {
-        return props.formatFn(val)
     }
     return name
 }

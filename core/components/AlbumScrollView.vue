@@ -14,7 +14,7 @@
                 :page-sum="computedVolumeSum" @change="selectVol" />
             <div class="page-container" ref="pageContainers" v-for="i of computedVolPageIndexList"
                 :key="i"
-                :style="{ 'width': `${store.widthScale}%`, 'padding-bottom': `${store.widthScale * storeAction.getImgPageHeightOfWidth(i)}%`, 'margin': `${store.scrollPageMargin}px auto` }">
+                :style="pageStyle(i)">
                 <PageView :index="i" :active="nearbyIndexList.indexOf(i) > -1"/>
             </div>
             <Pagination v-if="computedVolumeSum > 1" class="bottom-pagination" :cur-index="computedCurVolNo - 1"
@@ -28,13 +28,67 @@ import AwesomeScrollView from './widget/AwesomeScrollView.vue'
 import Pagination from './widget/Pagination.vue'
 import PageView from './PageView.vue'
 import { store, storeAction, computedVolIndex, computedVolFirstIndex, computedVolPageIndexList, computedVolumeSum, computedCurVolNo, computedVolPreloadPageIndexList } from '../store/app'
-import { ref, computed, watch, inject, onMounted, nextTick, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, watchEffect, onMounted, nextTick, onUnmounted } from 'vue'
 
 const updater = 'album_scroll_view'
 const animationTime = 800
+// total vertical breathing space (px) around a page in fit-height mode
+const fitHeightGap = 24
 const scrollPosition = ref(0)
 const scrollView: any = ref(null)
 const pageContainers: any = ref(null)
+const viewSize = reactive({ width: 0, height: 0 })
+let viewResizeObserver: ResizeObserver | null = null
+
+function measureView() {
+    const el = scrollView.value?.$el as HTMLElement | undefined
+    if (el) {
+        viewSize.width = el.clientWidth
+        viewSize.height = el.clientHeight
+    }
+}
+
+watch(scrollView, (comp) => {
+    viewResizeObserver?.disconnect()
+    const el = comp?.$el as HTMLElement | undefined
+    if (!el) {
+        return
+    }
+    viewResizeObserver = new ResizeObserver(measureView)
+    viewResizeObserver.observe(el)
+    measureView()
+}, { flush: 'post', immediate: true })
+
+onUnmounted(() => {
+    viewResizeObserver?.disconnect()
+})
+
+function fitHeightWidthPercent(index: number): number {
+    if (!viewSize.width || !viewSize.height) {
+        return 80
+    }
+    const pageWidthPx = (viewSize.height - fitHeightGap) / storeAction.getImgPageHeightOfWidth(index)
+    return Math.min(100, (pageWidthPx / viewSize.width) * 100)
+}
+
+function pageWidthPercent(index: number): number {
+    return store.widthScale === 0 ? fitHeightWidthPercent(index) : store.widthScale
+}
+
+function pageStyle(index: number) {
+    const width = pageWidthPercent(index)
+    return {
+        'width': `${width}%`,
+        'padding-bottom': `${width * storeAction.getImgPageHeightOfWidth(index)}%`,
+        'margin': `${store.scrollPageMargin}px auto`,
+    }
+}
+
+watchEffect(() => {
+    if (store.imgPageInfos.length > 0) {
+        storeAction.setFitHeightWidthScale(Math.round(fitHeightWidthPercent(store.curViewIndex)))
+    }
+})
 
 function onScrollStopped(position: number) {
     scrollPosition.value = position
@@ -80,10 +134,12 @@ async function scrollToCurIndex() {
         scrollView.value.scrollTo(0, animationTime)
         return
     }
-    scrollView.value.scrollTo(
-        target.offsetTop - 100,
-        animationTime
-    )
+    // center pages that fit on screen; otherwise keep the original top-aligned offset
+    const viewHeight = viewSize.height || window.innerHeight
+    const offset = target.offsetHeight <= viewHeight
+        ? target.offsetTop - (viewHeight - target.offsetHeight) / 2
+        : target.offsetTop - 100
+    scrollView.value.scrollTo(Math.max(0, offset), animationTime)
 }
 
 onMounted(() => {

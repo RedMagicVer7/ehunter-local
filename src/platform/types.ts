@@ -13,7 +13,9 @@ export enum Platform {
   /** NHentai platform (nhentai.net) */
   NH = 'NH',
   /** Test platform (localhost, IP addresses) */
-  TEST = 'TEST'
+  TEST = 'TEST',
+  /** Local library served by server/index.mjs */
+  LOCAL = 'LOCAL'
 }
 
 /**

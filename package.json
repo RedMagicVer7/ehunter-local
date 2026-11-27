@@ -5,6 +5,7 @@
     "dev": "vite",
     "build": "vite build",
     "build-only": "vite build",
+    "serve": "node server/index.mjs",
     "preview": "vite preview",
     "build-dev": "vite build",
     "build-prod": "vite build --config vite.config.prod.ts",

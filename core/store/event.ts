@@ -2,23 +2,6 @@ import { store, storeAction } from './app'
 import { i18n, lang } from './i18n'
 import config from '../../src/config'
 import { getWelcomeInstructionText } from '../assets/instructions'
-import { getVersionNotesText } from '../assets/versionNotes'
-import { TextReq } from '../../src/platform/base/request/TextReq'
-import pkgJson from '../../package.json'
-
-interface UpdateDialogOperation {
-    name: string
-    url: string
-}
-
-interface UpdateMessage {
-    title: string
-    version: string
-    text: string
-    operations: UpdateDialogOperation[]
-    time: number
-    duration: number
-}
 
 function getEhunterElem() : HTMLDivElement|null {
     return document.querySelector('.ehunter-container')
@@ -43,20 +26,91 @@ export function initViewportSizeUpdater() {
     });
 }
 
-function handleKeyboardEvent(e: any) {
-    const keyboardUpdater = 'keyboard'
-    const rawKey = typeof e.key === 'string' ? e.key : ''
-    if (e.metaKey || (e.ctrlKey && rawKey !== 'Control')) {
+const keyboardUpdater = 'keyboard'
+// Modifier keys bound as shortcuts fire on release, so Shift+Space etc. don't trigger them
+const soloModifierKeys = new Set(['Shift', 'Control'])
+let pendingSoloModifier: string | null = null
+
+function isEditableTarget(target: HTMLElement | null): boolean {
+    if (!target) {
+        return false
+    }
+    const tagName = (target.tagName || '').toLowerCase()
+    return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable
+}
+
+function scrollOneScreen(direction: 1 | -1) {
+    if (store.readingMode == 0) {
+        const scroller = document.querySelector('.album-scroll-view .awesome-scroll-view') as HTMLElement | null
+        if (scroller) {
+            scroller.scrollBy({ top: direction * scroller.clientHeight * 0.9, behavior: 'smooth' })
+        }
         return
     }
-    const target = e.target as HTMLElement | null
-    if (target) {
-        const tagName = (target.tagName || '').toLowerCase()
-        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable) {
-            return
+    if (direction > 0 && store.curViewIndex + store.pagesPerScreen >= store.pageCount) {
+        return
+    }
+    storeAction.setCurViewIndex(store.curViewIndex + direction * store.pagesPerScreen, keyboardUpdater)
+}
+
+function handleKeyboardEvent(e: any) {
+    const rawKey = typeof e.key === 'string' ? e.key : ''
+    if (isEditableTarget(e.target as HTMLElement | null)) {
+        return
+    }
+    if (soloModifierKeys.has(rawKey)) {
+        if (!e.repeat) {
+            pendingSoloModifier = rawKey
         }
+        return
+    }
+    pendingSoloModifier = null
+
+    if (e.metaKey || e.ctrlKey) {
+        if (rawKey === '=' || rawKey === '+') {
+            e.preventDefault()
+            storeAction.stepWidthScale(1)
+        } else if (rawKey === '-' || rawKey === '_') {
+            e.preventDefault()
+            storeAction.stepWidthScale(-1)
+        }
+        return
     }
 
+    if (rawKey === ' ' && !e.altKey) {
+        e.preventDefault()
+        scrollOneScreen(e.shiftKey ? -1 : 1)
+        return
+    }
+    if (rawKey === 'Home' || rawKey === 'End') {
+        e.preventDefault()
+        storeAction.setCurViewIndex(rawKey === 'Home' ? 0 : store.pageCount - 1, keyboardUpdater)
+        return
+    }
+
+    runShortcutActions(rawKey)
+}
+
+function handleKeyUpEvent(e: any) {
+    const rawKey = typeof e.key === 'string' ? e.key : ''
+    if (pendingSoloModifier === null || rawKey !== pendingSoloModifier) {
+        return
+    }
+    pendingSoloModifier = null
+    if (isEditableTarget(e.target as HTMLElement | null)) {
+        return
+    }
+    runShortcutActions(rawKey)
+}
+
+function preventPinchZoom(e: WheelEvent) {
+    // trackpad pinch arrives as ctrl+wheel; stop the browser from zooming the page
+    if (e.ctrlKey) {
+        e.preventDefault()
+    }
+}
+
+function runShortcutActions(rawKey: string) {
     const key = rawKey.length === 1 ? rawKey.toLowerCase() : rawKey
     const shortcutMap = buildShortcutLookup()
     const actionList = shortcutMap[key]
@@ -101,10 +155,10 @@ function handleKeyboardEvent(e: any) {
             }
             break
         case 'increaseWidthScale':
-            storeAction.setWidthScale(Math.min(100, store.widthScale + 5))
+            storeAction.setWidthScale(Math.min(100, storeAction.getEffectiveWidthScale() + 5))
             break
         case 'decreaseWidthScale':
-            storeAction.setWidthScale(Math.max(30, store.widthScale - 5))
+            storeAction.setWidthScale(Math.max(30, storeAction.getEffectiveWidthScale() - 5))
             break
         case 'togglePagination':
             if (store.readingMode == 1) {
@@ -149,6 +203,8 @@ function buildShortcutLookup(): Record<string, string[]> {
 
 export function initKeyboardListener() {
     document.addEventListener('keydown', handleKeyboardEvent)
+    document.addEventListener('keyup', handleKeyUpEvent)
+    window.addEventListener('wheel', preventPinchZoom, { passive: false })
 }
 
 
@@ -217,7 +273,6 @@ export function checkInstructions() {
             storeAction.setLang('en')
         }
         storeAction.markWelcomeInstructionShown()
-        openWelcomeInstructionDialog(true)
         return
     }
 }
@@ -228,106 +283,4 @@ export function openWelcomeInstructionDialog(isCompulsive = false) {
         mdText: getWelcomeInstructionText(lang.value, config.homePage),
         isCompulsive,
     })
-}
-
-function normalizeUpdateMessage(data: any): UpdateMessage | null {
-    if (!data || typeof data !== 'object') {
-        return null
-    }
-    const langKey = lang.value === 'cn' || lang.value === 'jp' ? lang.value : 'en'
-    const localized = data[langKey]
-    if (!localized || typeof localized !== 'object') {
-        return null
-    }
-    const operations = Array.isArray(localized.operations)
-        ? localized.operations
-            .filter((item: any) => item && typeof item.name === 'string' && typeof item.url === 'string')
-            .map((item: any) => ({ name: item.name, url: item.url }))
-        : []
-    return {
-        title: typeof localized.title === 'string' ? localized.title : '',
-        version: typeof localized.version === 'string' ? localized.version : '',
-        text: typeof localized.text === 'string' ? localized.text : '',
-        operations,
-        time: Number(localized.time) || 0,
-        duration: Number(localized.duration) || 0,
-    }
-}
-
-async function fetchRemoteUpdateMessage(): Promise<UpdateMessage | null> {
-    const requestList = [config.updateServer1, config.updateServer2]
-        .filter(url => typeof url === 'string' && url.length > 0)
-        .map(url => new TextReq(url, true, true).setCredentials('omit').request())
-    if (requestList.length === 0) {
-        return null
-    }
-    try {
-        const rawText = await Promise.race(requestList)
-        const parsed = JSON.parse(rawText)
-        return normalizeUpdateMessage(parsed)
-    } catch (e) {
-        return null
-    }
-}
-
-function checkNewVersionNotice() {
-    const appVersion = pkgJson.version
-    if (store.lastSeenVersionNotice === appVersion) {
-        return
-    }
-    storeAction.openInstructionDialog({
-        title: `${i18n.value.versionUpdate} v${appVersion}`,
-        mdText: getVersionNotesText(lang.value),
-        isCompulsive: true,
-        operations: [{
-            name: i18n.value.confirm,
-            btnType: 'plain',
-            isCloseModal: true,
-            onClick: () => storeAction.markVersionNoticeSeen(appVersion),
-        }],
-    })
-}
-
-async function checkRemoteUpdateNotice() {
-    const message = await fetchRemoteUpdateMessage()
-    if (!message) {
-        return
-    }
-    const appVersion = pkgJson.version
-    const now = Date.now()
-    const isNewVersion = message.version !== appVersion
-    const isReleaseTime = now > message.time
-    const isOverDuration = (now - store.lastRemoteUpdateNoticeAt) > message.duration
-    if (!isNewVersion || !isReleaseTime || !isOverDuration) {
-        return
-    }
-    storeAction.markRemoteUpdateNoticeShown(now)
-    const operations = [{
-        name: i18n.value.later,
-        btnType: 'plain',
-        isCloseModal: true,
-    }, ...message.operations.map(item => ({
-        name: item.name,
-        btnType: 'plain',
-        isCloseModal: true,
-        onClick: () => window.open(item.url, '_blank'),
-    }))]
-    storeAction.openInstructionDialog({
-        title: message.title,
-        mdText: message.text,
-        isCompulsive: true,
-        operations,
-    })
-}
-
-let hasStartedVersionCheck = false
-export function checkVersion() {
-    if (hasStartedVersionCheck) {
-        return
-    }
-    hasStartedVersionCheck = true
-    window.setTimeout(async () => {
-        await checkRemoteUpdateNotice()
-        checkNewVersionNotice()
-    }, 5000)
 }

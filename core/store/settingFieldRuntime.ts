@@ -76,6 +76,13 @@ export function getNumList(id: string): number[] {
     return (settingConf as any)[field.numKey].list
 }
 
+export function getNumFormatFn(id: string): ((val: number) => string) | undefined {
+    if (id === 'widthScale') {
+        return (val: number) => (val === 0 ? i18n.value.fitHeight : `${val}%`)
+    }
+    return undefined
+}
+
 export function getNumSuffix(id: string): string {
     const field = settingFieldMap[id]
     if (!field || !field.numKey) {

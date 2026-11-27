@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["env.d.ts", "src/main.ts", "src/platform/**/*", "core/**/*"],
+  "include": ["env.d.ts", "src/main.ts", "src/local/**/*", "src/platform/**/*", "core/**/*"],
   "exclude": ["old/**/*", "core_old/**/*"],
   "compilerOptions": {
     "baseUrl": ".",

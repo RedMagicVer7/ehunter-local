@@ -40,6 +40,7 @@
                                         :min="settingFieldMap[fieldId]?.min || 0"
                                         :max="settingFieldMap[fieldId]?.max || 999"
                                         :is-float="!!settingFieldMap[fieldId]?.isFloat"
+                                        :format-fn="getNumFormatFn(fieldId)"
                                         @change="(val) => onFieldChange(fieldId, val)" />
                                     <SimpleSwitch
                                         v-else-if="settingFieldMap[fieldId]?.control === 'switch'"
@@ -70,6 +71,7 @@
                                         :min="settingFieldMap[fieldId]?.min || 0"
                                         :max="settingFieldMap[fieldId]?.max || 999"
                                         :is-float="!!settingFieldMap[fieldId]?.isFloat"
+                                        :format-fn="getNumFormatFn(fieldId)"
                                         @change="(val) => onFieldChange(fieldId, val)" />
                                     <SimpleSwitch
                                         v-else-if="settingFieldMap[fieldId]?.control === 'switch'"
@@ -100,6 +102,7 @@
                                         :min="settingFieldMap[fieldId]?.min || 0"
                                         :max="settingFieldMap[fieldId]?.max || 999"
                                         :is-float="!!settingFieldMap[fieldId]?.isFloat"
+                                        :format-fn="getNumFormatFn(fieldId)"
                                         @change="(val) => onFieldChange(fieldId, val)" />
                                     <SimpleSwitch
                                         v-else-if="settingFieldMap[fieldId]?.control === 'switch'"
@@ -247,7 +250,7 @@ import SimpleSwitch from './widget/SimpleSwitch.vue'
 import SimpleDialog from './widget/SimpleDialog.vue'
 import { i18n } from '../store/i18n'
 import { store, storeAction, settingsCategories, quickSettingOptions, settingFieldMap, shortcutActionDefinitions, shortcutKeyCandidates, type ShortcutActionId } from '../store/app'
-import { getFieldValue, setFieldValue, getDropList, getNumList, getNumSuffix, getDialogFieldIds } from '../store/settingFieldRuntime'
+import { getFieldValue, setFieldValue, getDropList, getNumList, getNumSuffix, getNumFormatFn, getDialogFieldIds } from '../store/settingFieldRuntime'
 
 const contentRef = ref<HTMLElement | null>(null)
 const generalRef = ref<HTMLElement | null>(null)

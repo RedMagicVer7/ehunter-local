@@ -40,6 +40,7 @@
                     :min="field.min || 0"
                     :max="field.max || 999"
                     :is-float="!!field.isFloat"
+                    :format-fn="getNumFormatFn(field.id)"
                     @change="(val) => handleFieldChange(field.id, val)" />
                 <SimpleSwitch
                     v-else-if="field.control === 'switch'"
@@ -64,7 +65,7 @@ import { store, storeAction, computedVisibleQuickSettingIds, settingFieldMap } f
 import MoreSettingsDialog from './MoreSettingsDialog.vue'
 import DownloadConfirmDialog from './dialog/DownloadConfirmDialog.vue'
 import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { getFieldValue, setFieldValue, getDropList, getNumList, getNumSuffix } from '../store/settingFieldRuntime'
+import { getFieldValue, setFieldValue, getDropList, getNumList, getNumSuffix, getNumFormatFn } from '../store/settingFieldRuntime'
 
 const emit = defineEmits(['closeEHunter'])
 

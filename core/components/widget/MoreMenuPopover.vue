@@ -7,9 +7,6 @@
             <div class="item" @click="handleQuickPreview">
                 <span>{{ i18n.quickPreview }}</span>
             </div>
-            <div class="item" @click="handleDownload">
-                <span>{{ i18n.download }}</span>
-            </div>
         </div>
     </Popover>
 </template>
@@ -31,11 +28,6 @@ function handleMoreSettings() {
 
 function handleQuickPreview() {
     emit('quick-preview')
-    emit('close')
-}
-
-function handleDownload() {
-    emit('download')
     emit('close')
 }
 </script>

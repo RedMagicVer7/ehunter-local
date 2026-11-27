@@ -39,6 +39,11 @@ export default <any>{
         en: 'Custom',
         jp: 'カスタム'
     },
+    fitHeight: {
+        cn: '适合高度',
+        en: 'Fit height',
+        jp: '高さに合わせる'
+    },
     loadNum: {
         cn: '加载页数',
         en: 'Loading quantity',
@@ -285,9 +290,9 @@ export default <any>{
         jp: 'パネルサイズ調整'
     },
     closeEHunter: {
-        cn: '关闭eHunter',
-        en: 'Close eHunter',
-        jp: 'eHunter閉じる'
+        cn: '返回书库',
+        en: 'Back to library',
+        jp: 'ライブラリに戻る'
     },
     toggleTopBar: {
         cn: '显示/隐藏顶栏',
